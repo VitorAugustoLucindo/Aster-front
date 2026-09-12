@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      - BACKEND_URL=http://your-backend-url.onrender.com
+    networks:
+      - aster-network
+
+networks:
+  aster-network:
+    driver: bridge
