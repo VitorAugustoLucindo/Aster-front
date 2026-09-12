@@ -6,19 +6,18 @@ $error = null;
 $success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firebase_token = $_POST['firebase_token'] ?? '';
+    $id_token = $_POST['id_token'] ?? '';
 
-    if (empty($firebase_token)) {
-        $error = "Token do Firebase é obrigatório.";
+    if (empty($id_token)) {
+        $error = "Token de autenticação do Google é obrigatório.";
     } else {
         $api = new ApiClient();
         try {
-            // Calls POST /api/v1/auth/session as per api-spec.md
+            // Agora enviamos o id_token do Google para o backend
             $response = $api->post('/api/v1/auth/session', [
-                'firebase_token' => $firebase_token
+                'id_token' => $id_token
             ]);
 
-            // Assuming the API returns the JWT in a field called 'token' or similar
             $jwt = $response['token'] ?? $response['jwt'] ?? null;
 
             if ($jwt) {
@@ -26,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = "Autenticado com sucesso!";
                 header("Refresh: 2; url=index.php");
             } else {
-                $error = "Erro ao obter token de sessão.";
+                $error = "Erro ao obter token de sessão do servidor.";
             }
         } catch (Exception $e) {
             $error = "Erro de autenticação: " . $e->getMessage();
@@ -40,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <title>Login - Aster</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="bg-light">
     <div class="container">
@@ -48,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="card shadow">
                     <div class="card-body p-4 text-center">
                         <h2 class="mb-4">Aster 📚</h2>
-                        <p class="text-muted mb-4">Insira seu token do Firebase para acessar</p>
+                        <p class="text-muted mb-4">Acesse sua conta para gerenciar seu catálogo</p>
                         
                         <?php if ($error): ?>
                             <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
@@ -58,14 +59,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
                         <?php endif; ?>
 
-                        <form method="POST">
-                            <div class="mb-3 text-start">
-                                <label class="form-label">Firebase Token</label>
-                                <input type="text" name="firebase_token" class="form-control" required placeholder="eyJhbG... ">
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Entrar</button>
+                        <!-- Botão do Google Identity Services -->
+                        <div id="g_id_onload"
+                             data-client_id="SEU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+                             data-context="signin"
+                             data-ux_mode="popup"
+                             data-callback="handleCredentialResponse"
+                             data-auto_prompt="false">
+                        </div>
+
+                        <div class="g_id_signin"
+                             data-type="standard"
+                             data-shape="rectangular"
+                             data-theme="outline"
+                             data-text="signin_with"
+                             data-size="large"
+                             data-logo_alignment="left">
+                        </div>
+
+                        <!-- Formulário oculto para enviar o token ao PHP -->
+                        <form id="google-token-form" method="POST" style="display: none;">
+                            <input type="hidden" name="id_token" id="id_token">
                         </form>
-                        <div class="mt-3">
+
+                        <div class="mt-4">
                             <a href="index.php" class="text-decoration-none">Voltar para o catálogo</a>
                         </div>
                     </div>
@@ -73,5 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+
+    <script>
+        function handleCredentialResponse(response) {
+            // O response.credential é o JWT (ID Token) assinado pelo Google
+            document.getElementById('id_token').value = response.credential;
+            document.getElementById('google-token-form').submit();
+        }
+    </script>
 </body>
 </html>
